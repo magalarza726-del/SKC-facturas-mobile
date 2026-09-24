@@ -1,0 +1,55 @@
+name: Bootstrap source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/bootstrap-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-source
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Descargar y verificar fuente SKC Facturas 3.8.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --retry-delay 2 \
+            'https://filebin.net/skc-facturas-mobile-381-20260923/SKC_compile_source.tar.xz' \
+            --output /tmp/SKC_compile_source.tar.xz
+          echo '9eb0e27083b45913e5a05aca909b46045798a807107002a58c8df019e06700d3  /tmp/SKC_compile_source.tar.xz' | sha256sum -c -
+
+      - name: Restaurar código fuente real
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -xJf /tmp/SKC_compile_source.tar.xz -C .
+          rm -rf .bootstrap
+          rm -f .github/workflows/bootstrap-source.yml
+
+      - name: Publicar fuente real en main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No hay cambios que publicar.'
+            exit 0
+          fi
+          git commit -m 'bootstrap: restaurar código fuente SKC Facturas 3.8.1'
+          git push origin HEAD:main
